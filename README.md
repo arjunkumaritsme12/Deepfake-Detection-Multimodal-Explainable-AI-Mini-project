@@ -64,7 +64,7 @@ An advanced AI-powered deepfake detection system that analyzes videos and images
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/urvashi-agrawal-dev/Deepfake-video-image-detection.git
+git clone https://github.com/arjunkumaritsme12/Deepfake-Detection-Multimodal-Explainable-AI-Mini-project.git
 cd Deepfake-video-image-detection
 ```
 
@@ -199,7 +199,7 @@ GET /debug/test-detection
 ## 📁 Project Structure
 
 ```
-deepfake-detection/
+Deepfake-video-image-detection/
 ├── app/                          # Next.js app directory
 │   ├── api/                      # API routes
 │   │   ├── predict/              # Video prediction endpoint
@@ -253,12 +253,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👨‍💻 Author
 
 **Urvashi Agrawal**
-- GitHub: [@urvashi-agrawal-dev](https://github.com/urvashi-agrawal-dev)
-- Email: urvashi.agrawal.dev@gmail.com
+- GitHub: [@arjunkumaritsme12](https://github.com/arjunkumaritsme12)
+- Email: roy.prajapat.143@gmail.com
 
 ## 📞 Support
 
-For support, email urvashi.agrawal.dev@gmail.com or create an issue in this repository.
+For support, email roy.prajapat.143@gmail.com or create an issue in this repository.
 
 ---
 
