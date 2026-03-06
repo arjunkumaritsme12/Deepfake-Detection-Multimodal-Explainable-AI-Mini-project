@@ -1,4 +1,4 @@
-// File: C:\Users\oasis\Global-AI-Summit\app\page.tsx
+// File: D:\deepfake detection project\Deepfake-video-image-detection\app\page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
