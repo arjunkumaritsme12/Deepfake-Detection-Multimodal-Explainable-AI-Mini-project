@@ -1,0 +1,12 @@
+{
+  "name": "deepfake-detection-backend",
+  "version": "1.0.0",
+  "description": "FastAPI backend for deepfake detection",
+  "main": "main.py",
+  "scripts": {
+    "start": "python main.py"
+  },
+  "keywords": ["deepfake", "detection", "ai", "fastapi"],
+  "author": "Urvashi Agrawal",
+  "license": "MIT"
+}
