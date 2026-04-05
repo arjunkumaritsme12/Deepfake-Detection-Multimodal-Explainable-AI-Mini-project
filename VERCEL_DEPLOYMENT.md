@@ -112,6 +112,6 @@ After successful deployment, you'll have:
 
 ## 🎉 Success!
 
-Your Deepfake Detection System is now live and ready to use! 
+🚀 The Deepfake Detection System is now live!
 
-Share your frontend URL with users to start detecting deepfakes in real-time.
+Share the frontend URL and empower users to detect deepfakes in real time.
