@@ -20,11 +20,18 @@ module.exports = {
           800: '#6b21a8',
           900: '#581c87',
         },
+        cyber: {
+          pink: '#ff1493',
+          purple: '#8a2be2',
+          blue: '#00ffff'
+        }
       },
       animation: {
         'gradient': 'gradient 8s linear infinite',
         'float': 'float 6s ease-in-out infinite',
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'blob': 'blob 7s infinite',
+        'shine': 'shine 2s linear infinite',
       },
       keyframes: {
         gradient: {
@@ -41,10 +48,25 @@ module.exports = {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-20px)' },
         },
+        blob: {
+          '0%': { transform: 'translate(0px, 0px) scale(1)' },
+          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+          '100%': { transform: 'translate(0px, 0px) scale(1)' },
+        },
+        shine: {
+          '0%': { backgroundPosition: '200% center' },
+          '100%': { backgroundPosition: '-200% center' },
+        }
       },
       backdropBlur: {
         xs: '2px',
       },
+      boxShadow: {
+        'glow-purple': '0 0 20px rgba(168, 85, 247, 0.5)',
+        'glow-pink': '0 0 20px rgba(236, 72, 153, 0.5)',
+        'neon': '0 0 10px theme("colors.primary.500"), 0 0 40px theme("colors.primary.500")'
+      }
     },
   },
   plugins: [],
