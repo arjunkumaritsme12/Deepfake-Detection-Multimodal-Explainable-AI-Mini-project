@@ -113,58 +113,39 @@ class TemporalAttention(nn.Module):
         return x, attn_weights
 
 class FrequencyAnalyzer(nn.Module):
-    """Analyze frequency domain for deepfake artifacts"""
+    """Analyze frequency domain using PyTorch FFT for deepfake artifacts"""
     def __init__(self, embed_dim=768):
         super().__init__()
         self.fc = nn.Sequential(
-            nn.Linear(128, 256),
+            nn.Linear(3, 64), # Using 3 channels for simplicity
             nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(256, embed_dim)
+            nn.Linear(64, embed_dim)
         )
         
-    def forward(self, images):
-        """Extract frequency features from images"""
-        B, T, C, H, W = images.shape
-        freq_features = []
+    def forward(self, x):
+        # x: (B, T, C, H, W)
+        B, T, C, H, W = x.shape
         
-        for b in range(B):
-            frame_features = []
-            for t in range(T):
-                img = images[b, t].cpu().numpy().transpose(1, 2, 0)
-                
-                # Convert to grayscale
-                if img.shape[2] == 3:
-                    gray = cv2.cvtColor((img * 255).astype(np.uint8), cv2.COLOR_RGB2GRAY)
-                else:
-                    gray = (img[:, :, 0] * 255).astype(np.uint8)
-                
-                # DCT (Discrete Cosine Transform)
-                dct = fftpack.dct(fftpack.dct(gray.T, norm='ortho').T, norm='ortho')
-                
-                # Extract low-frequency components (8x8 blocks)
-                dct_features = []
-                for i in range(0, gray.shape[0], 32):
-                    for j in range(0, gray.shape[1], 32):
-                        block = dct[i:i+8, j:j+8]
-                        if block.size > 0:
-                            dct_features.append(block.flatten()[:16])
-                
-                if dct_features:
-                    dct_features = np.concatenate(dct_features)[:128]
-                    if len(dct_features) < 128:
-                        dct_features = np.pad(dct_features, (0, 128 - len(dct_features)))
-                else:
-                    dct_features = np.zeros(128)
-                
-                frame_features.append(torch.tensor(dct_features, dtype=torch.float32))
-            
-            freq_features.append(torch.stack(frame_features))
+        # Simple frequency-like feature: Global average of FFT magnitude
+        # We process in batch for speed
+        # Reshape to (B*T, C, H, W)
+        x_reshaped = x.view(B * T, C, H, W)
         
-        freq_features = torch.stack(freq_features).to(images.device)
-        freq_features = self.fc(freq_features)
+        # Fast Fourier Transform
+        # fft2 returns (B*T, C, H, W) complex
+        freq = torch.fft.fft2(x_reshaped)
+        freq_mag = torch.abs(freq)
         
-        return freq_features
+        # Global average of magnitude per channel
+        # (B*T, C)
+        avg_mag = freq_mag.mean(dim=(-2, -1))
+        
+        # Project to embed_dim
+        # (B*T, embed_dim)
+        features = self.fc(avg_mag)
+        
+        # Reshape back to (B, T, embed_dim)
+        return features.view(B, T, -1)
 
 class ViTDeepfakeDetector(nn.Module):
     """
@@ -184,9 +165,9 @@ class ViTDeepfakeDetector(nn.Module):
         patch_size=16,
         in_channels=3,
         num_classes=2,
-        embed_dim=768,
-        depth=12,
-        num_heads=12,
+        embed_dim=192,
+        depth=3,
+        num_heads=3,
         mlp_ratio=4.0,
         dropout=0.1
     ):
@@ -316,13 +297,13 @@ def load_vit_model(model_path: str = None, device: str = None) -> ViTDeepfakeDet
     model = ViTDeepfakeDetector(
         img_size=224,
         patch_size=16,
-        embed_dim=384,  # Smaller than standard ViT
-        depth=6,        # Fewer layers
-        num_heads=6,
+        embed_dim=192,
+        depth=3,
+        num_heads=3,
         dropout=0.1
     )
     
-    # Try to load weights
+    weights_loaded = False
     if model_path and os.path.exists(model_path):
         try:
             checkpoint = torch.load(model_path, map_location=device)
@@ -330,14 +311,15 @@ def load_vit_model(model_path: str = None, device: str = None) -> ViTDeepfakeDet
                 model.load_state_dict(checkpoint['model_state_dict'])
             else:
                 model.load_state_dict(checkpoint)
+            weights_loaded = True
             print(f"✓ Loaded ViT model from {model_path}")
         except Exception as e:
             print(f"⚠ Could not load weights: {e}")
-            print("  Using pre-trained initialization")
     else:
-        print("⚠ No model weights found. Using random initialization.")
-        print("  Note: For production, train the model on deepfake datasets!")
+        # Silent initialization if no path provided - using heuristic mode
+        print("⚠ No ViT weights provided, initializing skeleton without pretrained weights")
     
+    model.weights_loaded = weights_loaded
     model = model.to(device)
     model.eval()
     

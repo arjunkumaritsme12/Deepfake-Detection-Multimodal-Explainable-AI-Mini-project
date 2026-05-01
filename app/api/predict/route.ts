@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           detail: 'Cannot connect to backend server',
-          hint: 'Make sure the backend is running: cd api && python main.py',
+          hint: 'Make sure the backend is running: cd backend && python main.py',
           error: error.message
         },
         { status: 503 }

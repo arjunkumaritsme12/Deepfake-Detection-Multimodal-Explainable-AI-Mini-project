@@ -91,7 +91,8 @@ export default function UploadSection({ onResult, onBack }: UploadSectionProps) 
       })
 
       if (!response.ok) {
-        throw new Error('Processing failed')
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.message || 'Processing failed');
       }
 
       const data = await response.json()
@@ -105,7 +106,9 @@ export default function UploadSection({ onResult, onBack }: UploadSectionProps) 
       
     } catch (error) {
       clearInterval(progressInterval)
-      toast.error('Failed to process. Please check your connection.')
+      console.error('Upload error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process. Please check your connection.';
+      toast.error(errorMessage, { duration: 5000 });
     } finally {
       setIsProcessing(false)
     }

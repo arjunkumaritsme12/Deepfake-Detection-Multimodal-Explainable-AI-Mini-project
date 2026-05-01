@@ -12,6 +12,11 @@ interface ResultsSectionProps {
 
 export default function ResultsSection({ result, onReset }: ResultsSectionProps) {
   const isReal = result.output === 'REAL'
+  const isFake = result.output === 'FAKE'
+  const isUncertain = result.output === 'UNCERTAIN'
+  
+  const themeColor = isReal ? 'green' : isFake ? 'red' : 'amber'
+  const themeHex = isReal ? '#10b981' : isFake ? '#ef4444' : '#f59e0b'
   
   const actualFramesAnalyzed = result.analysis?.frames_extracted || result.frames_analyzed || result.preprocessed_images.length
   const confidenceData = Array.from({ length: actualFramesAnalyzed }, (_, i) => {
@@ -69,7 +74,7 @@ export default function ResultsSection({ result, onReset }: ResultsSectionProps)
         <motion.div variants={itemVariants} className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`w-2 h-2 rounded-full animate-pulse ${isReal ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className={`w-2 h-2 rounded-full animate-pulse bg-${themeColor}-500`} />
               <span className="text-[10px] font-black tracking-[0.3em] text-gray-500 uppercase">Analysis Complete</span>
             </div>
             <h1 className="text-4xl font-black tracking-tight text-white">Detection <span className="gradient-text">Report</span></h1>
@@ -90,36 +95,46 @@ export default function ResultsSection({ result, onReset }: ResultsSectionProps)
           
           {/* Main Verdict Card */}
           <motion.div variants={itemVariants} className="lg:col-span-12 xl:col-span-8 flex flex-col gap-8">
-            <div className={`glass-effect p-10 relative overflow-hidden group ${isReal ? 'border-green-500/20 shadow-green-500/5' : 'border-red-500/20 shadow-red-500/5'}`}>
-              <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full -z-10 transition-opacity duration-500 opacity-20 ${isReal ? 'bg-green-500' : 'bg-red-500'}`} />
+            <div className={`glass-effect p-10 relative overflow-hidden group border-${themeColor}-500/20 shadow-${themeColor}-500/5`}>
+              <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full -z-10 transition-opacity duration-500 opacity-20 bg-${themeColor}-500`} />
               
               <div className="flex flex-col md:flex-row items-start md:items-center gap-10">
                 <div className="relative">
                   <motion.div 
                     animate={{ rotate: 360 }}
                     transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className={`absolute -inset-4 border-2 border-dashed rounded-full opacity-20 ${isReal ? 'border-green-400' : 'border-red-400'}`}
+                    className={`absolute -inset-4 border-2 border-dashed rounded-full opacity-20 border-${themeColor}-400`}
                   />
                   <div className={`w-32 h-32 rounded-[2.5rem] flex items-center justify-center border-2 shadow-2xl transition-all duration-500 transform group-hover:scale-105 ${
-                    isReal ? 'bg-green-500/10 border-green-500/50 shadow-green-500/20' : 'bg-red-500/10 border-red-500/50 shadow-red-500/20'
+                    isReal ? 'bg-green-500/10 border-green-500/50 shadow-green-500/20' : 
+                    isFake ? 'bg-red-500/10 border-red-500/50 shadow-red-500/20' :
+                    'bg-amber-500/10 border-amber-500/50 shadow-amber-500/20'
                   }`}>
-                    {isReal ? <CheckCircle className="w-16 h-16 text-green-400" /> : <Shield className="w-16 h-16 text-red-500" />}
+                    {isReal ? <CheckCircle className="w-16 h-16 text-green-400" /> : 
+                     isFake ? <Shield className="w-16 h-16 text-red-500" /> :
+                     <AlertCircle className="w-16 h-16 text-amber-500" />}
                   </div>
                 </div>
 
                 <div className="flex-grow">
                   <div className={`inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-[0.2em] uppercase mb-4 ${
-                    isReal ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    isReal ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 
+                    isFake ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                    'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                   }`}>
                     Verdict Hash: {Math.random().toString(36).substring(2, 10).toUpperCase()}
                   </div>
-                  <h2 className={`text-5xl md:text-6xl font-black mb-4 tracking-tighter ${isReal ? 'text-white' : 'text-white'}`}>
-                    Content is <span className={isReal ? 'text-green-400' : 'text-red-500'}>{isReal ? 'Authentic' : 'Manipulated'}</span>
+                  <h2 className="text-5xl md:text-6xl font-black mb-4 tracking-tighter text-white">
+                    Content is <span className={isReal ? 'text-green-400' : isFake ? 'text-red-500' : 'text-amber-500'}>
+                      {isReal ? 'Authentic' : isFake ? 'Manipulated' : 'Uncertain'}
+                    </span>
                   </h2>
                   <p className="text-gray-400 text-lg font-light leading-relaxed max-w-2xl">
                     {isReal 
                       ? 'No deepfake indicators were detected. The temporal consistency and facial features align with authentic biological patterns.'
-                      : 'High-frequency noise and temporal discontinuities detected. The content shows clear signs of generative neural manipulation.'
+                      : isFake 
+                      ? 'High-frequency noise and temporal discontinuities detected. The content shows clear signs of generative neural manipulation.'
+                      : 'Analysis yields inconclusive results. Some patterns appear suspicious, but not enough to reach a definitive verdict.'
                     }
                   </p>
                 </div>
@@ -127,7 +142,7 @@ export default function ResultsSection({ result, onReset }: ResultsSectionProps)
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-12 pt-10 border-t border-white/5">
                 {[
-                  { label: "Confidence", val: `${result.confidence}%`, color: isReal ? "text-green-400" : "text-red-400", sub: "Neural certainty" },
+                  { label: "Confidence", val: `${result.confidence}%`, color: isReal ? "text-green-400" : isFake ? "text-red-400" : "text-amber-400", sub: "Neural certainty" },
                   { label: "Frames", val: actualFramesAnalyzed, color: "text-white", sub: "Pipeline depth" },
                   { label: "Process Time", val: `${result.processing_time || '0.8'}s`, color: "text-white", sub: "Inference latency" }
                 ].map((stat, i) => (
@@ -154,8 +169,8 @@ export default function ResultsSection({ result, onReset }: ResultsSectionProps)
                   <AreaChart data={confidenceData}>
                     <defs>
                       <linearGradient id="colorConf" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={isReal ? '#10b981' : '#ef4444'} stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor={isReal ? '#10b981' : '#ef4444'} stopOpacity={0}/>
+                        <stop offset="5%" stopColor={themeHex} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={themeHex} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -165,7 +180,7 @@ export default function ResultsSection({ result, onReset }: ResultsSectionProps)
                       contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
                       itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                     />
-                    <Area type="monotone" dataKey="confidence" stroke={isReal ? '#10b981' : '#ef4444'} strokeWidth={3} fillOpacity={1} fill="url(#colorConf)" />
+                    <Area type="monotone" dataKey="confidence" stroke={themeHex} strokeWidth={3} fillOpacity={1} fill="url(#colorConf)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -238,12 +253,12 @@ export default function ResultsSection({ result, onReset }: ResultsSectionProps)
                  <motion.div
                     key={idx}
                     whileHover={{ y: -5 }}
-                    className={`glass-effect p-2 transition-all duration-300 ${isReal ? 'hover:border-green-500/50' : 'hover:border-red-500/50'}`}
+                    className={`glass-effect p-2 transition-all duration-300 ${isReal ? 'hover:border-green-500/50' : isFake ? 'hover:border-red-500/50' : 'hover:border-amber-500/50'}`}
                  >
                     <div className="aspect-square rounded-lg overflow-hidden relative mb-3">
                        <img src={img} className="w-full h-full object-cover" />
-                       <div className={`absolute top-2 right-2 w-6 h-6 rounded-lg flex items-center justify-center ${isReal ? 'bg-green-500 shadow-glow-green' : 'bg-red-500 shadow-glow-red'}`}>
-                          {isReal ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                       <div className={`absolute top-2 right-2 w-6 h-6 rounded-lg flex items-center justify-center ${isReal ? 'bg-green-500 shadow-glow-green' : isFake ? 'bg-red-500 shadow-glow-red' : 'bg-amber-500 shadow-glow-amber'}`}>
+                          {isReal ? <CheckCircle size={14} /> : isFake ? <AlertCircle size={14} /> : <Clock size={14} />}
                        </div>
                     </div>
                     <div className="px-2 pb-2">
