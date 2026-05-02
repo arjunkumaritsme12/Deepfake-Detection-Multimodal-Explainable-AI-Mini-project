@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Brain, Shield, Zap, Video, ArrowRight, CheckCircle } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
+import { Brain, Shield, Zap, Video, ArrowRight, Activity, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import UploadSection from './components/UploadSection'
 import ResultsSection from './components/ResultsSection'
@@ -77,141 +77,166 @@ export interface DetectionResult {
 export default function Home() {
   const [result, setResult] = useState<DetectionResult | null>(null)
   const [showUpload, setShowUpload] = useState(false)
+  const targetRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: targetRef,
+    offset: ["start end", "end start"]
+  })
+
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [0, 1])
+  const y = useTransform(scrollYProgress, [0, 0.5], [100, 0])
 
   const handleReset = () => {
     setResult(null)
     setShowUpload(false)
   }
 
+  // Animation Variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.15 }
+    }
+  }
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  }
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen font-sans">
       {!showUpload && !result ? (
         /* Landing Page */
-        <div className="container mx-auto px-4 py-12 md:py-20">
+        <div className="container mx-auto px-4 py-8 md:py-16 overflow-hidden">
           {/* Hero Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-16"
-          >
+          <div className="relative min-h-[80vh] flex flex-col items-center justify-center text-center">
+            {/* Background elements already handled in global body styles, but adding an extra glowing orb for the hero */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+            
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="w-20 h-20 mx-auto mb-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="relative w-32 h-32 mx-auto mb-10"
             >
-              <Brain className="w-10 h-10 text-white" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse blur-xl opacity-50" />
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                className="relative w-full h-full bg-glass-effect glass-effect rounded-[2rem] flex items-center justify-center transform rotate-45 border border-white/20 shadow-glow-purple"
+              >
+                <Brain className="w-16 h-16 text-white -rotate-45 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+              </motion.div>
             </motion.div>
 
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
-              <span className="gradient-text">Deepfake Detection</span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-purple-200 max-w-3xl mx-auto mb-8">
-              Advanced AI-powered system to detect manipulated videos and images using cutting-edge deep learning technology
-            </p>
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="max-w-4xl mx-auto z-10"
+            >
+              <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-sm font-medium text-white/80">AI Model Online & Ready</span>
+              </motion.div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button
-                onClick={() => setShowUpload(true)}
-                className="btn-primary flex items-center gap-2 text-lg"
-              >
-                Try Demo Now
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <Link href="/how-it-works" className="btn-secondary text-lg">
-                How It Works
-              </Link>
-            </div>
-          </motion.div>
+              <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl font-black mb-6 tracking-tight leading-[1.1]">
+                Uncover the <br className="hidden md:block"/>
+                <span className="gradient-text drop-shadow-2xl">Digital Truth</span>
+              </motion.h1>
+              
+              <motion.p variants={itemVariants} className="text-xl md:text-2xl text-gray-300 max-w-2xl mx-auto mb-12 font-light leading-relaxed">
+                State-of-the-art vision transformer architecture analyzing temporal inconsistencies to detect manipulated media with <strong className="text-white">unprecedented accuracy</strong>.
+              </motion.p>
+
+              <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+                <button
+                  onClick={() => setShowUpload(true)}
+                  className="btn-primary flex items-center justify-center gap-3 text-lg w-full sm:w-auto min-w-[200px]"
+                >
+                  <Activity className="w-5 h-5" />
+                  Analyze Media
+                </button>
+                <Link href="/how-it-works" className="btn-secondary group flex items-center justify-center gap-2 text-lg w-full sm:w-auto min-w-[200px]">
+                  View Documentation
+                  <span className="transform transition-transform group-hover:translate-x-1"><ChevronRight className="w-5 h-5"/></span>
+                </Link>
+              </motion.div>
+            </motion.div>
+          </div>
 
           {/* Features Grid */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8 }}
+            className="py-24"
           >
-            <FeatureCard
-              icon={<Shield className="w-12 h-12 text-purple-400" />}
-              title="High Accuracy"
-              description="Advanced Vision Transformer architecture with multi-modal analysis for both videos and images"
-            />
-            <FeatureCard
-              icon={<Zap className="w-12 h-12 text-purple-400" />}
-              title="Fast Processing"
-              description="Quick analysis with real-time face detection and frame extraction in seconds"
-            />
-            <FeatureCard
-              icon={<Video className="w-12 h-12 text-purple-400" />}
-              title="Multi-format Support"
-              description="Supports videos (MP4, AVI, MOV, MKV) and images (JPG, PNG, WEBP) up to 100MB"
-            />
-          </motion.div>
+            <div className="mb-16 text-center">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Enterprise-grade Engine</h2>
+              <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto rounded-full" />
+            </div>
 
-          {/* Why It Matters Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="glass-effect p-8 md:p-12 mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-8">
-              Why Deepfake Detection Matters
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-semibold mb-4 text-purple-300">The Problem</h3>
-                <p className="text-purple-100 leading-relaxed">
-                  Deepfake technology has become increasingly sophisticated, making it easier to create 
-                  convincing fake videos that can spread misinformation, damage reputations, and 
-                  undermine trust in digital media.
-                </p>
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold mb-4 text-purple-300">Our Solution</h3>
-                <p className="text-purple-100 leading-relaxed">
-                  Our AI-powered detection system analyzes video frames, facial features, and temporal 
-                  patterns to identify manipulated content with high accuracy, helping protect digital 
-                  authenticity and combat misinformation.
-                </p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <FeatureCard
+                icon={<Shield className="w-10 h-10 text-white" />}
+                title="Deep Authenticity"
+                description="Cross-references temporal frames against known generative artifacts with absolute precision."
+                delay={0}
+              />
+              <FeatureCard
+                icon={<Zap className="w-10 h-10 text-white" />}
+                title="Nano-second Processing"
+                description="Hardware-accelerated inference utilizing optimized tensor cores for real-time analysis."
+                delay={0.2}
+              />
+              <FeatureCard
+                icon={<Video className="w-10 h-10 text-white" />}
+                title="Omni-format Support"
+                description="Seamlessly ingest & process multi-megabyte 4K streams and compressed imagery pipelines."
+                delay={0.4}
+              />
             </div>
           </motion.div>
 
-          {/* How It Works Preview */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="text-center"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-8">How It Works</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              {[
-                { step: '1', title: 'Upload Video', desc: 'Select a video file to analyze' },
-                { step: '2', title: 'Extract Frames', desc: 'AI extracts key frames from video' },
-                { step: '3', title: 'Analyze Faces', desc: 'Deep learning detects anomalies' },
-                { step: '4', title: 'Get Results', desc: 'Receive detailed analysis report' },
-              ].map((item, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 + index * 0.1 }}
-                  className="glass-effect p-6"
-                >
-                  <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl font-bold">
-                    {item.step}
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                  <p className="text-sm text-purple-200">{item.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-            <Link href="/how-it-works" className="btn-secondary">
-              Learn More About Our Technology
-            </Link>
-          </motion.div>
+          {/* How It Works Parallax Section */}
+          <div ref={targetRef} className="py-24 relative z-10">
+            <motion.div style={{ opacity, y }} className="glass-effect p-8 md:p-16 rounded-[2.5rem] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-500/10 blur-[100px] rounded-full" />
+              
+              <div className="text-center mb-16 relative z-10">
+                <h2 className="text-4xl md:text-5xl font-bold mb-6">Pipeline Architecture</h2>
+                <p className="text-gray-400 text-lg max-w-2xl mx-auto">From raw media ingestion to explainable probabilistic outputs.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-10">
+                {[
+                  { step: '01', title: 'Ingestion Layer', desc: 'Secure payload parsing & validation' },
+                  { step: '02', title: 'Frame Extraction', desc: 'Temporal decoding & alignment' },
+                  { step: '03', title: 'Feature Mapping', desc: 'Transformer-based spatial analysis' },
+                  { step: '04', title: 'Synthesis', desc: 'Explainable score aggregation' },
+                ].map((item, index) => (
+                  <motion.div
+                    key={index}
+                    whileHover={{ y: -10, scale: 1.02 }}
+                    className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm relative group overflow-hidden transition-colors hover:bg-white/10"
+                  >
+                    <div className="absolute -bottom-10 -right-10 text-8xl font-black text-white/5 transition-transform group-hover:scale-110 group-hover:-translate-y-2 group-hover:-translate-x-2">
+                      {item.step}
+                    </div>
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-xl font-bold text-white mb-6 shadow-glow-purple">
+                      {item.step}
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-white">{item.title}</h3>
+                    <p className="text-gray-400 font-light leading-relaxed">{item.desc}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
         </div>
       ) : result ? (
         /* Results Page */

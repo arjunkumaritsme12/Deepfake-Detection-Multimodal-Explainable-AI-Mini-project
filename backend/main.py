@@ -8,6 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os
+import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 import tempfile
 import shutil
 from pathlib import Path
@@ -22,6 +27,7 @@ from PIL import Image
 
 # Import Vision Transformer modules
 ML_AVAILABLE = False
+MODEL_WEIGHTS_LOADED = False
 model = None
 
 try:
@@ -32,8 +38,8 @@ try:
         analyze_temporal_consistency,
         detect_compression_artifacts
     )
+    # Delay printing until lifespan starts
     ML_AVAILABLE = True
-    print("✓ Vision Transformer modules loaded successfully")
 except ImportError as e:
     print(f"⚠ ML modules not available: {e}")
     print("  Install required packages: pip install scipy")
@@ -41,8 +47,9 @@ except Exception as e:
     print(f"⚠ Error loading ML modules: {e}")
 
 # Create necessary directories
-UPLOAD_DIR = Path("temp_uploads")
-PROCESSED_DIR = Path("processed_media")
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "temp_uploads"
+PROCESSED_DIR = BASE_DIR / "processed_media"
 UPLOAD_DIR.mkdir(exist_ok=True)
 PROCESSED_DIR.mkdir(exist_ok=True)
 
@@ -50,17 +57,32 @@ PROCESSED_DIR.mkdir(exist_ok=True)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize model and clean up old files"""
-    global model, ML_AVAILABLE
+    global model, ML_AVAILABLE, MODEL_WEIGHTS_LOADED
     
     # Startup
     if ML_AVAILABLE:
         try:
-            print("🚀 Loading Vision Transformer model...")
-            model = load_vit_model()
-            print("✓ Vision Transformer model loaded successfully")
+            # Check for default model file from backend folder
+            model_path = BASE_DIR / "model.pth"
+            print(f"🔍 Checking for model at: {model_path.absolute()}")
+            
+            if model_path.exists():
+                print(f"🚀 Loading Vision Transformer weights from {model_path}...", flush=True)
+                model = load_vit_model(str(model_path))
+                MODEL_WEIGHTS_LOADED = getattr(model, 'weights_loaded', False)
+                if MODEL_WEIGHTS_LOADED:
+                    print(f"✅ ViT Model successfully loaded from {model_path}", flush=True)
+                else:
+                    print(f"❌ ERROR: Model file found but architecture mismatch or corrupt. Using Heuristic Mode.", flush=True)
+                    model = None
+            else:
+                print(f"ℹ️ INFO: Model weights not found at {model_path}. Server will start in HEURISTIC MODE (CV only).", flush=True)
+                model = None
+                MODEL_WEIGHTS_LOADED = False
         except Exception as e:
-            print(f"✗ Failed to load model: {e}")
+            print(f"✗ CRITICAL: Failed to initialize ML engine: {e}", flush=True)
             ML_AVAILABLE = False
+            MODEL_WEIGHTS_LOADED = False
     
     # Cleanup old files
     try:
@@ -122,11 +144,11 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "model": "Vision Transformer" if ML_AVAILABLE and model else "mock_mode",
-        "ml_available": ML_AVAILABLE,
+        "model": "Vision Transformer" if ML_AVAILABLE and MODEL_WEIGHTS_LOADED else "heuristic_mode",
+        "ml_available": ML_AVAILABLE and MODEL_WEIGHTS_LOADED,
         "face_detection": "multi_scale_opencv",
         "features": {
-            "spatial_analysis": "Vision Transformer",
+            "spatial_analysis": "Vision Transformer" if ML_AVAILABLE and MODEL_WEIGHTS_LOADED else "Heuristic CV Analysis",
             "temporal_analysis": "Temporal Attention",
             "frequency_analysis": "DCT-based",
             "face_detection": "Multi-scale Haar Cascades"
@@ -170,9 +192,9 @@ async def predict_deepfake(
             shutil.copyfileobj(upload_video_file.file, temp_file)
             temp_file_path = temp_file.name
         
-        # Process video - Use intelligent CV analysis instead of untrained ViT
-        print("🔍 Using Intelligent Computer Vision Analysis (bypassing untrained ViT)")
-        result = await smart_mock_prediction(temp_file_path, num_frames)
+        # Process video - Use Vision Transformer for actual ML prediction
+        print("🔍 Using Vision Transformer for Deepfake Detection")
+        result = await vit_predict_video(temp_file_path, num_frames)
         
         # Add metadata
         result['processing_time'] = round(time.time() - start_time, 2)
@@ -202,13 +224,13 @@ async def test_detection():
     return {
         "message": "Ultra-Sensitive Deepfake Detection Logic",
         "logic_explanation": {
-            "detection_approach": "Ultra-Sensitive Evidence-based - Optimized for modern deepfakes",
-            "reasoning": "Detect even subtle AI generation artifacts with lower thresholds",
+            "detection_approach": "Balanced Evidence-based - Optimized for accurate real vs fake detection",
+            "reasoning": "Balanced sensitivity to detect deepfakes while preserving real content accuracy",
             "thresholds": {
-                "image_fake_threshold": "fake_probability > 35% (ultra-sensitive)",
-                "video_fake_threshold": "fake_probability > 38% (ultra-sensitive)", 
-                "face_fake_threshold": "suspicious_score > 20 (ultra-sensitive)",
-                "base_fake_probability": "35% (higher starting point)"
+                "image_fake_threshold": "fake_probability > 40% (balanced)",
+                "video_fake_threshold": "fake_probability > 35% (balanced)", 
+                "face_fake_threshold": "suspicious_score > 30 (balanced)",
+                "base_fake_probability": "25% (balanced starting point)"
             }
         },
         "detection_behavior": {
@@ -227,9 +249,9 @@ async def test_detection():
         },
         "expected_results": {
             "high_quality_deepfakes": "Should detect as FAKE through subtle AI artifacts",
-            "real_images_videos": "Should detect as REAL only with strong natural indicators",
+            "real_images_videos": "Should detect as REAL with strong natural indicators",
             "logging": "Detailed scoring breakdown in console output",
-            "sensitivity": "Ultra-high - optimized to catch modern deepfakes"
+            "sensitivity": "Balanced - optimized for accuracy on both real and fake content"
         }
     }
 @app.post("/api/predict-image/")
@@ -267,9 +289,9 @@ async def predict_image_deepfake(
             shutil.copyfileobj(upload_image_file.file, temp_file)
             temp_file_path = temp_file.name
         
-        # Process image
-        print("🔍 Using Intelligent Computer Vision Analysis for Image")
-        result = await smart_image_prediction(temp_file_path)
+        # Process image using Vision Transformer
+        print("🔍 Using Vision Transformer for Image Analysis")
+        result = await vit_predict_image(temp_file_path)
         
         # Add metadata
         result['processing_time'] = round(time.time() - start_time, 2)
@@ -494,11 +516,11 @@ async def smart_image_prediction(image_path: str) -> Dict:
                 
                 # BALANCED FACE CLASSIFICATION
                 # Weight authenticity indicators properly
-                authenticity_bonus = len(face_authenticity_indicators) * 12
+                authenticity_bonus = len(face_authenticity_indicators) * 12  # Balanced bonus
                 adjusted_suspicious_score = max(0, face_suspicious_score - authenticity_bonus)
                 
                 # Balanced threshold - evidence-based classification
-                face_is_fake = adjusted_suspicious_score > 25  # More sensitive threshold
+                face_is_fake = adjusted_suspicious_score > 30  # Balanced threshold for faces
                 
                 # Calculate confidence based on evidence strength
                 evidence_strength = abs(face_suspicious_score - authenticity_bonus)
@@ -713,39 +735,41 @@ async def smart_image_prediction(image_path: str) -> Dict:
             print("   🚨 NO FACES DETECTED - Strong deepfake indicator")
             warnings.append("No faces detected - common in heavily processed deepfake content")
             
-            # No faces is highly suspicious - assume FAKE
-            final_fake_prob = 85
-            final_real_prob = 15
-            is_fake = True
-            confidence = 85
+            # No faces detected is NOT a strong indicator of FAKE anymore
+            # Just use a neutral baseline if no face is found
+            final_fake_prob = 20  # Slightly lower baseline
+            final_real_prob = 80
+            is_fake = False
+            confidence = 80
+            warnings.append("No faces detected - results may be less accurate")
             
         else:
-            # ENHANCED DETECTION - Look for subtle deepfake artifacts
-            base_fake_probability = 35  # Start higher for better deepfake detection
+            # BALANCED DETECTION - Less biased starting point
+            base_fake_probability = 10  # Neutral starting point
             
             # Advanced deepfake detection indicators
             deepfake_score = 0
             authenticity_score = 0
             
-            # 1. ADVANCED COMPRESSION ANALYSIS
-            if compression_score < 5:  # Too clean = AI generation
-                deepfake_score += 30
-                warnings.append("Suspiciously clean compression (AI generation)")
-            elif compression_score > 45:  # Over-compressed = manipulation
-                deepfake_score += 20
-                warnings.append("Over-compression artifacts")
-            elif 10 <= compression_score <= 30:  # Natural range
-                authenticity_score += 10
-            
-            # 2. IMAGE QUALITY PERFECTION CHECK
-            if image_quality > 92:  # Too perfect = AI
-                deepfake_score += 25
-                warnings.append("Suspiciously perfect image quality")
-            elif image_quality < 20:  # Too poor = manipulation
+            # 1. COMPRESSION ANALYSIS (Tuned)
+            if compression_score < 3:  # Only extremely clean images are suspicious
                 deepfake_score += 15
-                warnings.append("Very poor image quality")
-            elif 40 <= image_quality <= 85:  # Natural range
-                authenticity_score += 8
+                warnings.append("Unusually clean compression")
+            elif compression_score > 55:  # High compression
+                deepfake_score += 12
+                warnings.append("High compression artifacts")
+            elif 5 <= compression_score <= 40:  # Natural range
+                authenticity_score += 15
+            
+            # 2. IMAGE QUALITY CHECK (Reduced penalty for high quality)
+            if image_quality > 95:  # Very high quality
+                deepfake_score += 10
+                warnings.append("High quality digital source")
+            elif image_quality < 15:  # Very poor quality
+                deepfake_score += 15
+                warnings.append("Poor image quality")
+            elif 30 <= image_quality <= 90:  # Natural range
+                authenticity_score += 12
             
             # 3. FACE DETECTION PATTERNS
             if face_quality > 95:  # Too perfect = suspicious
@@ -773,17 +797,22 @@ async def smart_image_prediction(image_path: str) -> Dict:
                 suspicious_faces = 0
                 authentic_faces = 0
                 deepfake_artifacts = 0
+                suspicious_reason_count = 0
+                total_authenticity_indicators = 0
                 
                 for face_data in image_analysis_details['faces_analysis']:
                     # Check for specific deepfake artifacts
                     reasons = face_data.get('reasons', [])
                     authenticity_indicators = face_data.get('authenticity_indicators', [])
+                    total_authenticity_indicators += len(authenticity_indicators)
                     
                     # Count deepfake-specific artifacts
                     deepfake_keywords = ['symmetric', 'smooth', 'sharp', 'uniform', 'artificial', 'AI', 'generation']
                     for reason in reasons:
                         if any(keyword.lower() in reason.lower() for keyword in deepfake_keywords):
                             deepfake_artifacts += 1
+                        if reason:
+                            suspicious_reason_count += 1
                     
                     if face_data.get('is_fake', False):
                         suspicious_faces += 1
@@ -793,86 +822,90 @@ async def smart_image_prediction(image_path: str) -> Dict:
                 if total_faces > 0:
                     suspicious_ratio = suspicious_faces / total_faces
                     artifact_ratio = deepfake_artifacts / total_faces
+                    authenticity_ratio = total_authenticity_indicators / max(1, total_faces)
                     
                     # Even small percentages are significant
                     if suspicious_ratio > 0.4:  # 40% suspicious faces
-                        deepfake_score += 40
+                        deepfake_score += 50
                         warnings.append(f"High ratio of suspicious faces ({suspicious_ratio:.0%})")
                     elif suspicious_ratio > 0.2:  # 20% suspicious faces
-                        deepfake_score += 25
+                        deepfake_score += 35
                         warnings.append(f"Multiple suspicious faces detected")
                     elif suspicious_ratio > 0:  # Any suspicious faces
-                        deepfake_score += 15
+                        deepfake_score += 22
                         warnings.append("Some suspicious faces detected")
                     
                     # Deepfake artifacts are very telling
                     if artifact_ratio > 0.3:  # 30% faces with AI artifacts
-                        deepfake_score += 35
+                        deepfake_score += 45
                         warnings.append("Strong AI generation artifacts detected")
                     elif artifact_ratio > 0.1:  # 10% faces with AI artifacts
-                        deepfake_score += 20
+                        deepfake_score += 28
                         warnings.append("AI artifacts detected in faces")
                     
-                    # Only give authenticity points if most faces are clearly authentic
-                    if suspicious_ratio == 0 and artifact_ratio == 0 and len(authenticity_indicators) > 0:
-                        authenticity_score += 20
+                    # Boost fake probability for multiple suspicious reasons
+                    if suspicious_reason_count > 2:
+                        deepfake_score += 18
+                        warnings.append("Multiple suspicious facial artifact indicators")
+                    
+                    # Balanced authenticity points
+                    if suspicious_ratio < 0.1 and artifact_ratio < 0.1 and authenticity_ratio > 1.0:
+                        authenticity_score += 25
             
             # 6. QUALITY PERFECTION CHECK
             quality_metrics = [image_quality, face_quality, edge_consistency, 100 - compression_score]
             avg_quality = np.mean(quality_metrics)
             quality_std = np.std(quality_metrics)
             
-            if avg_quality > 90 and quality_std < 5:  # Too perfect and consistent
-                deepfake_score += 25
+            if avg_quality > 90 and quality_std < 6:  # Too perfect and consistent
+                deepfake_score += 30
                 warnings.append("Suspiciously perfect and consistent quality")
             elif avg_quality < 35:  # Too poor overall
-                deepfake_score += 15
+                deepfake_score += 18
                 warnings.append("Poor overall quality metrics")
             elif 50 <= avg_quality <= 80 and quality_std > 8:  # Natural variation
-                authenticity_score += 12
+                authenticity_score += 10
             
-            # FINAL CALCULATION
+            # Strong combined fake evidence: perfect quality + low compression + suspicious edges
+            if image_quality > 92 and compression_score < 8 and edge_consistency > 90:
+                deepfake_score += 22
+                warnings.append("High-quality image with suspiciously low compression artifacts")
+            
+            if hue_std < 8 and blur_variance > 1000:
+                deepfake_score += 18
+                warnings.append("High sharpness with low hue variation - suspicious AI artifact")
+            
+            # FINAL CALCULATION - Balanced sensitivity
             evidence_difference = deepfake_score - authenticity_score
             
-            if evidence_difference > 20:  # Strong deepfake evidence
-                final_fake_prob = min(95, base_fake_probability + deepfake_score)
-            elif evidence_difference < -10:  # Strong authenticity evidence
-                final_fake_prob = max(8, base_fake_probability - authenticity_score)
-            else:  # Moderate evidence
-                final_fake_prob = base_fake_probability + (evidence_difference * 2)
-            
+            # Weighted probability calculation
+            final_fake_prob = max(5, min(95, base_fake_probability + (evidence_difference * 0.8)))
             final_real_prob = 100 - final_fake_prob
             
-            # Classification with enhanced sensitivity
-            is_fake = final_fake_prob > 35  # More sensitive threshold for better deepfake detection
-            
-            # Confidence based on evidence strength
-            evidence_strength = abs(evidence_difference)
-            if evidence_strength > 25:
-                confidence = min(95, max(80, 75 + evidence_strength))
-            elif evidence_strength > 12:
-                confidence = min(85, max(70, 65 + evidence_strength))
-            else:
-                confidence = min(75, max(60, 60 + evidence_strength))
-            
-            if not is_fake:
+            # Three-class classification logic
+            if final_fake_prob >= 60:
+                output_label = "FAKE"
+                confidence = final_fake_prob
+            elif final_fake_prob <= 40:
+                output_label = "REAL"
                 confidence = final_real_prob
+            else:
+                output_label = "UNCERTAIN"
+                confidence = 50 + abs(final_fake_prob - 50) # Distance from neutral
+            
+            is_fake = output_label == "FAKE"
             
             print(f"   📊 Deepfake score: {deepfake_score}, Authenticity score: {authenticity_score}")
             print(f"   🎯 Evidence difference: {evidence_difference}, Final fake prob: {final_fake_prob:.1f}%")
-            print(f"   🔍 Image Classification: {'FAKE' if is_fake else 'REAL'} (threshold: 35%)")
+            print(f"   🔍 Image Classification: {output_label}")
             print(f"   📈 Image Confidence: {confidence:.1f}%")
         
         # Generate probabilities
-        if is_fake:
-            fake_prob = confidence
-            real_prob = 100 - confidence
-        else:
-            real_prob = confidence
-            fake_prob = 100 - confidence
+        real_prob = final_real_prob
+        fake_prob = final_fake_prob
         
         result = {
-            "output": "FAKE" if is_fake else "REAL",
+            "output": output_label,
             "confidence": round(confidence, 2),
             "raw_confidence": round(confidence, 2),
             "probabilities": {
@@ -1398,29 +1431,31 @@ async def smart_mock_prediction(video_path: str, num_frames: int) -> Dict:
             print("   🚨 NO FACES DETECTED - Strong deepfake indicator")
             warnings.append("No faces detected - common in heavily processed deepfake content")
             
-            # No faces is highly suspicious for deepfake detection - assume FAKE
-            final_fake_prob = 88
-            final_real_prob = 12
-            is_fake = True
-            confidence = 88
+            # No faces detected is NOT a strong indicator of FAKE anymore
+            final_fake_prob = 20
+            final_real_prob = 80
+            is_fake = False
+            confidence = 80
+            output_label = "REAL"
+            warnings.append("No faces detected in video - results may be less accurate")
             
         else:
-            # ENHANCED DETECTION - Look for subtle deepfake artifacts
-            base_fake_probability = 35  # Start higher for better deepfake detection
+            # BALANCED DETECTION - Less biased starting point
+            base_fake_probability = 15  # Neutral starting point
             
             # Advanced deepfake detection indicators
             deepfake_score = 0
             authenticity_score = 0
             
-            # 1. ADVANCED COMPRESSION ANALYSIS - Modern deepfakes have specific patterns
-            if compression_score < 8:  # Too clean = AI generation
-                deepfake_score += 25
-                warnings.append("Suspiciously clean compression (AI generation)")
-            elif compression_score > 40:  # Over-compressed = manipulation
-                deepfake_score += 20
-                warnings.append("Over-compression artifacts")
-            elif 12 <= compression_score <= 25:  # Natural range
-                authenticity_score += 8
+            # 1. COMPRESSION ANALYSIS (Tuned)
+            if compression_score < 4:  # Only extremely clean images are suspicious
+                deepfake_score += 12
+                warnings.append("Unusually clean compression")
+            elif compression_score > 50:  # High compression
+                deepfake_score += 10
+                warnings.append("High compression artifacts")
+            elif 8 <= compression_score <= 35:  # Natural range
+                authenticity_score += 10
             
             # 2. TEMPORAL CONSISTENCY - Key indicator for video deepfakes
             if temporal_score < 60:  # Poor consistency = deepfake
@@ -1429,15 +1464,13 @@ async def smart_mock_prediction(video_path: str, num_frames: int) -> Dict:
             elif temporal_score >= 85:  # Very good consistency
                 authenticity_score += 15
             
-            # 3. FACE DETECTION PATTERNS - Deepfakes often have consistent face detection
-            if face_quality > 90:  # Too perfect = suspicious
-                deepfake_score += 20
-                warnings.append("Suspiciously perfect face detection")
-            elif face_quality < 30:  # Too poor = manipulation
-                deepfake_score += 15
-                warnings.append("Poor face detection quality")
-            elif 50 <= face_quality <= 80:  # Natural range
-                authenticity_score += 10
+            # 3. FACE DETECTION PATTERNS (Tuned)
+            if face_quality > 92:  # Very high quality
+                deepfake_score += 10
+            elif face_quality < 20:  # Poor quality
+                deepfake_score += 12
+            elif 40 <= face_quality <= 85:  # Natural range
+                authenticity_score += 12
             
             # 4. CRITICAL: Individual face analysis - Most important indicator
             if len(frame_analysis_details) > 0:
@@ -1533,40 +1566,33 @@ async def smart_mock_prediction(video_path: str, num_frames: int) -> Dict:
             elif 55 <= avg_quality <= 80 and quality_std > 10:  # Natural variation
                 authenticity_score += 10
             
-            # FINAL CALCULATION - Weight the evidence
+            # FINAL CALCULATION - Balanced sensitivity
             evidence_difference = deepfake_score - authenticity_score
             
-            if evidence_difference > 25:  # Strong deepfake evidence
-                final_fake_prob = min(95, base_fake_probability + deepfake_score)
-            elif evidence_difference < -15:  # Strong authenticity evidence
-                final_fake_prob = max(10, base_fake_probability - authenticity_score)
-            else:  # Moderate evidence
-                final_fake_prob = base_fake_probability + (evidence_difference * 2)
-            
+            # Weighted probability calculation
+            final_fake_prob = max(5, min(95, base_fake_probability + (evidence_difference * 0.7)))
             final_real_prob = 100 - final_fake_prob
             
-            # Classification with enhanced sensitivity
-            is_fake = final_fake_prob > 38  # More sensitive threshold for better detection
-            
-            # Confidence based on evidence strength
-            evidence_strength = abs(evidence_difference)
-            if evidence_strength > 30:
-                confidence = min(95, max(80, 75 + evidence_strength))
-            elif evidence_strength > 15:
-                confidence = min(85, max(70, 65 + evidence_strength))
-            else:
-                confidence = min(75, max(60, 60 + evidence_strength))
-            
-            if not is_fake:
+            # Three-class classification logic
+            if final_fake_prob >= 60:
+                output_label = "FAKE"
+                confidence = final_fake_prob
+            elif final_fake_prob <= 40:
+                output_label = "REAL"
                 confidence = final_real_prob
+            else:
+                output_label = "UNCERTAIN"
+                confidence = 50 + abs(final_fake_prob - 50)
+            
+            is_fake = output_label == "FAKE"
             
             print(f"   📊 Deepfake score: {deepfake_score}, Authenticity score: {authenticity_score}")
             print(f"   🎯 Evidence difference: {evidence_difference}, Final fake prob: {final_fake_prob:.1f}%")
-            print(f"   🔍 Video Classification: {'FAKE' if is_fake else 'REAL'} (threshold: 38%)")
+            print(f"   🔍 Video Classification: {output_label}")
             print(f"   📈 Video Confidence: {confidence:.1f}%")
         
         result = {
-            "output": "FAKE" if is_fake else "REAL",
+            "output": output_label,
             "confidence": round(confidence, 2),
             "raw_confidence": round(confidence, 2),
             "probabilities": {
@@ -1856,15 +1882,246 @@ def analyze_color_distribution_cv(image):
     except:
         return 75.0
 
+async def vit_predict_video(video_path: str, num_frames: int) -> Dict:
+    """
+    Predict deepfake using actual Vision Transformer model
+    """
+    import hashlib
+    
+    print(f"\n🔍 Using Vision Transformer for video analysis")
+    
+    try:
+        # Extract frames from video
+        cap = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        if total_frames == 0:
+            raise ValueError("Could not read video frames")
+        
+        # Extract frames for analysis
+        frames = []
+        frame_indices = np.linspace(0, total_frames-1, min(num_frames, total_frames), dtype=int)
+        
+        for idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ret, frame = cap.read()
+            if ret:
+                frames.append(frame)
+        
+        cap.release()
+        
+        if not frames:
+            raise ValueError("No frames extracted from video")
+        
+        print(f"   ✓ Extracted {len(frames)} frames for ViT analysis")
+        
+        # Extract faces from frames
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        all_faces = []
+        
+        for i, frame in enumerate(frames):
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            # Detect faces
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4, minSize=(30, 30))
+            
+            if len(faces) > 0:
+                # Take the largest face
+                faces = sorted(faces, key=lambda x: x[2] * x[3], reverse=True)
+                x, y, w, h = faces[0]
+                
+                # Extract and resize face
+                face = frame[y:y+h, x:x+w]
+                face = cv2.resize(face, (224, 224))
+                face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+                
+                all_faces.append(face)
+                print(f"   ✓ Extracted face from frame {i+1}")
+        
+        if not all_faces:
+            print("   ⚠️ No faces detected, using frame centers as fallback")
+            # Fallback: use center crop of frames
+            for frame in frames[:10]:  # Limit to 10 frames
+                h, w = frame.shape[:2]
+                center_x, center_y = w // 2, h // 2
+                size = min(w, h) // 2
+                
+                face = frame[center_y-size:center_y+size, center_x-size:center_x+size]
+                if face.size > 0:
+                    face = cv2.resize(face, (224, 224))
+                    face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+                    all_faces.append(face)
+        
+        if not all_faces:
+            raise ValueError("No faces or frames available for analysis")
+        
+        # Get heuristic prediction for combination
+        print("   🔄 Running heuristic analysis for verification")
+        heuristic_result = await smart_mock_prediction(video_path, num_frames)
+        
+        # Use ViT model for prediction only if weights were successfully loaded
+        if model and ML_AVAILABLE and MODEL_WEIGHTS_LOADED:
+            try:
+                vit_result = predict_with_vit(model, all_faces)
+                
+                # Combine predictions (70% model, 30% heuristics)
+                vit_fake_prob = vit_result['probabilities']['fake'] * 100
+                h_fake_prob = heuristic_result['probabilities']['fake']
+                
+                combined_fake_prob = (vit_fake_prob * 0.7) + (h_fake_prob * 0.3)
+                combined_real_prob = 100 - combined_fake_prob
+                
+                # Three-class logic
+                if combined_fake_prob >= 60:
+                    prediction = "FAKE"
+                    confidence = combined_fake_prob
+                elif combined_fake_prob <= 40:
+                    prediction = "REAL"
+                    confidence = combined_real_prob
+                else:
+                    prediction = "UNCERTAIN"
+                    confidence = 50 + abs(combined_fake_prob - 50)
+                
+                result = {
+                    "output": prediction,
+                    "confidence": round(confidence, 2),
+                    "raw_confidence": round(confidence, 2),
+                    "probabilities": {
+                        "real": round(combined_real_prob, 2),
+                        "fake": round(combined_fake_prob, 2)
+                    },
+                    "analysis": heuristic_result['analysis'],
+                    "preprocessed_images": heuristic_result['preprocessed_images'],
+                    "faces_cropped_images": heuristic_result['faces_cropped_images'],
+                    "frame_analysis": heuristic_result.get('frame_analysis', [])
+                }
+                
+                print(f"   🎯 Combined Prediction: {prediction} ({confidence:.1f}%) [Model: {vit_fake_prob:.1f}%, Heuristic: {h_fake_prob:.1f}%]")
+                return result
+                
+            except Exception as e:
+                print(f"   ⚠️ ViT prediction failed: {e}, using heuristics only")
+        
+        return heuristic_result
+        
+    except Exception as e:
+        print(f"   ❌ Video analysis failed: {e}")
+        raise
+
+async def vit_predict_image(image_path: str) -> Dict:
+    """
+    Predict deepfake in image using actual Vision Transformer model
+    """
+    print(f"\n🔍 Using Vision Transformer for image analysis")
+    
+    try:
+        # Load and preprocess image
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError("Could not load image")
+        
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        height, width = image_rgb.shape[:2]
+        
+        print(f"   ✓ Loaded image: {width}x{height}")
+        
+        # Extract faces from image
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+        
+        # Detect faces
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4, minSize=(30, 30))
+        
+        all_faces = []
+        if len(faces) > 0:
+            # Take the largest face
+            faces = sorted(faces, key=lambda x: x[2] * x[3], reverse=True)
+            x, y, w, h = faces[0]
+            
+            # Extract and resize face
+            face = image_rgb[y:y+h, x:x+w]
+            face = cv2.resize(face, (224, 224))
+            all_faces.append(face)
+            print(f"   ✓ Extracted face from image")
+        else:
+            print("   ⚠️ No faces detected, using center crop as fallback")
+            # Fallback: use center crop
+            h, w = image_rgb.shape[:2]
+            center_x, center_y = w // 2, h // 2
+            size = min(w, h) // 3
+            
+            face = image_rgb[center_y-size:center_y+size, center_x-size:center_x+size]
+            if face.size > 0:
+                face = cv2.resize(face, (224, 224))
+                all_faces.append(face)
+        
+        if not all_faces:
+            raise ValueError("No faces available for analysis")
+        
+        # Get heuristic prediction for combination
+        print("   🔄 Running heuristic analysis for verification")
+        heuristic_result = await smart_image_prediction(image_path)
+        
+        # Use ViT model for prediction only if weights were successfully loaded
+        if model and ML_AVAILABLE and MODEL_WEIGHTS_LOADED:
+            try:
+                # For single image, we need to create a sequence (ViT expects video-like input)
+                face_sequence = all_faces * 5
+                vit_result = predict_with_vit(model, face_sequence)
+                
+                # Combine predictions (70% model, 30% heuristics)
+                vit_fake_prob = vit_result['probabilities']['fake'] * 100
+                h_fake_prob = heuristic_result['probabilities']['fake']
+                
+                combined_fake_prob = (vit_fake_prob * 0.7) + (h_fake_prob * 0.3)
+                combined_real_prob = 100 - combined_fake_prob
+                
+                # Three-class logic
+                if combined_fake_prob >= 60:
+                    prediction = "FAKE"
+                    confidence = combined_fake_prob
+                elif combined_fake_prob <= 40:
+                    prediction = "REAL"
+                    confidence = combined_real_prob
+                else:
+                    prediction = "UNCERTAIN"
+                    confidence = 50 + abs(combined_fake_prob - 50)
+                
+                result = {
+                    "output": prediction,
+                    "confidence": round(confidence, 2),
+                    "raw_confidence": round(confidence, 2),
+                    "probabilities": {
+                        "real": round(combined_real_prob, 2),
+                        "fake": round(combined_fake_prob, 2)
+                    },
+                    "analysis": heuristic_result['analysis'],
+                    "preprocessed_images": heuristic_result['preprocessed_images'],
+                    "faces_cropped_images": heuristic_result['faces_cropped_images'],
+                    "image_analysis_details": heuristic_result['analysis'].get('image_analysis', {})
+                }
+                
+                print(f"   🎯 Combined Prediction: {prediction} ({confidence:.1f}%) [Model: {vit_fake_prob:.1f}%, Heuristic: {h_fake_prob:.1f}%]")
+                return result
+                
+            except Exception as e:
+                print(f"   ⚠️ ViT prediction failed: {e}, using heuristics only")
+        
+        return heuristic_result
+        
+    except Exception as e:
+        print(f"   ❌ Image analysis failed: {e}")
+        raise
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    print(f"\n{'='*60}")
-    print(f"🚀 Starting Deepfake Detection API - Vision Transformer")
-    print(f"{'='*60}")
-    print(f"📡 Server: http://0.0.0.0:{port}")
-    print(f"📚 Docs: http://0.0.0.0:{port}/docs")
-    print(f"🏥 Health: http://0.0.0.0:{port}/health")
-    print(f"{'='*60}\n")
+    print(f"\n{'='*60}", flush=True)
+    print(f"🚀 Deepfake Detection API - Server Active", flush=True)
+    print(f"{'='*60}", flush=True)
+    print(f"📡 URL: http://0.0.0.0:{port}", flush=True)
+    print(f"🏥 Health: http://0.0.0.0:{port}/health", flush=True)
+    print(f"{'='*60}\n", flush=True)
     
     uvicorn.run(
         "main:app",

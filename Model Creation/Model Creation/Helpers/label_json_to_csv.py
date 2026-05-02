@@ -10,11 +10,21 @@ import pandas as pd
 # In[40]:
 
 
+import os
+from pathlib import Path
+
+# Base directory for datasets
+BASE_DIR = Path(__file__).resolve().parents[3] / "datasets"
+
 for i in range(8):
-    path_json = "F:\College\BE\Final year project\FF_Dataset\Kaggle dataset\dfdc_train_part_"+str(i)+"\metadata.json"
-    path_csv = "F:\College\BE\Final year project\FF_Dataset\Kaggle dataset\dfdc_train_part_"+str(i)+"\metadata.csv"
-    print(path_csv)
-    print(path_json)
+    path_json = BASE_DIR / f"dfdc_train_part_{i}" / "metadata.json"
+    path_csv = BASE_DIR / f"dfdc_train_part_{i}" / "metadata.csv"
+    
+    if not path_json.exists():
+        print(f"Skipping part {i}: {path_json} not found")
+        continue
+        
+    print(f"Processing: {path_json}")
     read_json = pd.read_json(path_json)
     df = pd.DataFrame(read_json)
     df_2 = pd.DataFrame(df.transpose())

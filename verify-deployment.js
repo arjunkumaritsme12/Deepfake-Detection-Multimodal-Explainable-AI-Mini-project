@@ -1,10 +1,10 @@
-// Deployment Verification Script
-// Run this to verify your Vercel deployment matches localhost functionality
+// 🚀 Deployment Verification Script
+// Use this script to ensure your Vercel deployment works the same as your localhost setup
 
 const LOCALHOST_BACKEND = 'http://localhost:8000';
 const LOCALHOST_FRONTEND = 'http://localhost:3000';
 
-// Replace these with your Vercel URLs after deployment
+// 🔗 Replace these with your actual Vercel deployment URLs
 const VERCEL_BACKEND = 'https://your-backend-name.vercel.app';
 const VERCEL_FRONTEND = 'https://your-frontend-name.vercel.app';
 
@@ -12,7 +12,7 @@ async function verifyEndpoint(url, description) {
   try {
     const response = await fetch(url);
     const data = await response.json();
-    console.log(`✅ ${description}: ${response.status} - ${response.ok ? 'OK' : 'FAILED'}`);
+    console.log(`✅ ${description}: ${response.status} - ${response.ok ? 'SUCCESS' : 'FAILED'}`);
     return response.ok;
   } catch (error) {
     console.log(`❌ ${description}: ERROR - ${error.message}`);
@@ -21,37 +21,37 @@ async function verifyEndpoint(url, description) {
 }
 
 async function verifyDeployment() {
-  console.log('🔍 Verifying Deployment...\n');
+  console.log('🔍 Starting Deployment Verification...\n');
   
-  // Test localhost (should work)
-  console.log('📍 Testing Localhost:');
-  await verifyEndpoint(`${LOCALHOST_BACKEND}/health`, 'Localhost Backend Health');
-  await verifyEndpoint(`${LOCALHOST_BACKEND}/debug/test-detection`, 'Localhost Debug Info');
+  // 📍 Localhost checks (baseline validation)
+  console.log('📍 Checking Localhost Environment:');
+  await verifyEndpoint(`${LOCALHOST_BACKEND}/health`, 'Backend Health Check (Local)');
+  await verifyEndpoint(`${LOCALHOST_BACKEND}/debug/test-detection`, 'Debug Endpoint (Local)');
   
-  console.log('\n📍 Testing Vercel Deployment:');
-  await verifyEndpoint(`${VERCEL_BACKEND}/health`, 'Vercel Backend Health');
-  await verifyEndpoint(`${VERCEL_BACKEND}/debug/test-detection`, 'Vercel Debug Info');
+  console.log('\n📍 Checking Vercel Deployment:');
+  await verifyEndpoint(`${VERCEL_BACKEND}/health`, 'Backend Health Check (Vercel)');
+  await verifyEndpoint(`${VERCEL_BACKEND}/debug/test-detection`, 'Debug Endpoint (Vercel)');
   
-  console.log('\n🎯 Expected Features:');
-  console.log('- Video deepfake detection');
-  console.log('- Image deepfake detection');
-  console.log('- Individual face analysis (7 categories)');
-  console.log('- Frame-by-frame display');
+  console.log('\n🎯 Core Features to Validate:');
+  console.log('- Deepfake detection for videos');
+  console.log('- Deepfake detection for images');
+  console.log('- Per-face analysis (7 categories)');
+  console.log('- Frame-by-frame visualization');
   console.log('- Real-time progress tracking');
-  console.log('- Ultra-sensitive detection thresholds');
+  console.log('- High-sensitivity detection thresholds');
   
-  console.log('\n📋 Manual Tests Required:');
-  console.log(`1. Visit: ${VERCEL_FRONTEND}`);
-  console.log('2. Upload a test video - verify all frames display');
-  console.log('3. Upload a test image - verify face analysis works');
-  console.log('4. Check individual face crops appear');
-  console.log('5. Verify confidence scores and detailed analysis');
+  console.log('\n📋 Manual Testing Checklist:');
+  console.log(`1. Open: ${VERCEL_FRONTEND}`);
+  console.log('2. Upload a sample video → ensure all frames are displayed');
+  console.log('3. Upload a sample image → verify face detection and analysis');
+  console.log('4. Confirm individual face crops are shown');
+  console.log('5. Validate confidence scores and detailed insights');
 }
 
-// Uncomment and update URLs after deployment
+// 👉 After deployment, uncomment this line to run verification
 // verifyDeployment();
 
-console.log('📝 Instructions:');
-console.log('1. Deploy to Vercel following LOCALHOST_TO_VERCEL.md');
-console.log('2. Update VERCEL_BACKEND and VERCEL_FRONTEND URLs above');
-console.log('3. Run: node verify-deployment.js');
+console.log('📝 Setup Instructions:');
+console.log('1. Deploy your project to Vercel (refer to LOCALHOST_TO_VERCEL.md)');
+console.log('2. Update VERCEL_BACKEND and VERCEL_FRONTEND with your live URLs');
+console.log('3. Run the script using: node verify-deployment.js');
